@@ -1,0 +1,7 @@
+.venv
+.vscode
+commands.txt
+*.bat
+__pycache__
+migrations
+db.sqlite3
