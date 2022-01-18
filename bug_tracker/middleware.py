@@ -1,8 +1,17 @@
-from django.http import JsonResponse, HttpResponseForbidden
+from pprint import pprint
+from django.http import HttpResponseServerError, JsonResponse, HttpResponseForbidden
 from .models import User
 import json
 import jwt
 import requests
+
+
+def public(request):
+    return (
+        request.path.startswith("/admin")
+        or request.path.startswith("/favicon.ico")
+        or request.path.startswith("/membership-count")
+    )
 
 
 class Authenticate:
@@ -10,7 +19,7 @@ class Authenticate:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.path.startswith("/admin"):
+        if public(request):
             return self.get_response(request)
 
         DOMAIN = "dev-su34m38a.us.auth0.com"
@@ -20,27 +29,38 @@ class Authenticate:
         JWKS_URL = f"{ISSUER}.well-known/jwks.json"
 
         try:
-            token = request.headers.get("Authorization")
-            token = token.split()[1]
-        except Exception:
+            authorization = request.headers.get("Authorization")
+            request.token = authorization.split()[1]
+        except Exception as error:
+            print("ERROR", error)
             return HttpResponseForbidden("token not found")
 
         try:
-            header = jwt.get_unverified_header(token)
+            header = jwt.get_unverified_header(request.token)
             jwks = requests.get(JWKS_URL).json()
             for jwk in jwks["keys"]:
                 if jwk["kid"] == header["kid"]:
                     public_key = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(jwk))
             request.payload = jwt.decode(
-                token,
+                request.token,
                 public_key,
                 audience=AUDIENCE,
                 issuer=ISSUER,
                 algorithms=[ALGORITHM],
             )
-            request.userId = request.payload["sub"]
-        except Exception:
+            request.user_id = request.payload["sub"]
+        except Exception as error:
+            print("ERROR", error)
             return HttpResponseForbidden("token not valid")
+
+        try:
+            request.user_info = requests.get(
+                request.payload["aud"][1],
+                headers={"Authorization": f"Bearer {request.token}"},
+            ).json()
+        except Exception as error:
+            print("ERROR", error)
+            return HttpResponseServerError("cannot get user info")
 
         return self.get_response(request)
 
@@ -50,16 +70,23 @@ class UserFindCreate:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.path.startswith("/admin"):
+        if public(request):
             return self.get_response(request)
 
         try:
-            user, created = User.objects.get_or_create(userId=request.userId)
-            if created:
-                user.save()
+            user, update = User.objects.update_or_create(
+                user_id=request.user_id,
+                email=request.user_info["email"],
+                email_verified=request.user_info["email_verified"],
+                last_name=request.user_info["family_name"],
+                first_name=request.user_info["given_name"],
+                locale=request.user_info["locale"],
+                picture=request.user_info["picture"],
+            )
             request.user = user
-        except Exception:
-            return HttpResponseForbidden("cannot find/create user")
+        except Exception as error:
+            print("ERROR", error)
+            return HttpResponseForbidden("cannot find or create user")
 
         return self.get_response(request)
 
@@ -69,13 +96,14 @@ class ParseBody:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.path.startswith("/admin"):
+        if public(request):
             return self.get_response(request)
 
         if request.method == "POST":
             try:
                 request.data = json.loads(request.body.decode("utf-8"))
-            except Exception:
+            except Exception as error:
+                print("ERROR", error)
                 return HttpResponseForbidden("cannot read body")
 
         return self.get_response(request)
