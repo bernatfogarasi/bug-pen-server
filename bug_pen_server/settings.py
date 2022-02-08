@@ -40,6 +40,8 @@ MIDDLEWARE = [
     "bug_tracker.middleware.ParseBody",  #
 ]
 
+APPEND_SLASH = False
+
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [

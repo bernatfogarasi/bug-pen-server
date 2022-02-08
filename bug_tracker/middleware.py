@@ -1,17 +1,28 @@
 from pprint import pprint
 from django.http import HttpResponseServerError, JsonResponse, HttpResponseForbidden
+
+from bug_tracker.views import printError
 from .models import User
 import json
 import jwt
 import requests
+import string
+import random
 
 
 def public(request):
     return (
         request.path.startswith("/admin")
         or request.path.startswith("/favicon.ico")
-        or request.path.startswith("/membership-count")
+        or request.path.startswith("/memberships-count")
     )
+
+
+def generate_id(
+    length=10,
+    characters=string.ascii_uppercase + string.digits,
+):
+    return "".join(random.choice(characters) for _ in range(length))
 
 
 class Authenticate:
@@ -48,7 +59,7 @@ class Authenticate:
                 issuer=ISSUER,
                 algorithms=[ALGORITHM],
             )
-            request.user_id = request.payload["sub"]
+            request.auth_id = request.payload["sub"]
         except Exception as error:
             print("ERROR", error)
             return HttpResponseForbidden("token not valid")
@@ -58,6 +69,10 @@ class Authenticate:
                 request.payload["aud"][1],
                 headers={"Authorization": f"Bearer {request.token}"},
             ).json()
+
+            if "error" in request.user_info:
+                print("ERROR", request.user_info)
+                return HttpResponseServerError(request.user_info["error_description"])
         except Exception as error:
             print("ERROR", error)
             return HttpResponseServerError("cannot get user info")
@@ -74,15 +89,23 @@ class UserFindCreate:
             return self.get_response(request)
 
         try:
-            user, update = User.objects.update_or_create(
-                user_id=request.user_id,
-                email=request.user_info["email"],
+            user, created = User.objects.update_or_create(
+                auth_id=request.auth_id,
+                email=request.user_info["email"]
+                if "email" in request.user_info
+                else print("WARNING", "could not get email", request.user_info),
                 email_verified=request.user_info["email_verified"],
                 last_name=request.user_info["family_name"],
                 first_name=request.user_info["given_name"],
                 locale=request.user_info["locale"],
                 picture=request.user_info["picture"],
             )
+            if created:
+                while User.objects.filter(user_id=user.user_id).exists():
+                    user.user_id = generate_id(
+                        length=6, characters=string.ascii_lowercase + string.digits
+                    )
+                user.save()
             request.user = user
         except Exception as error:
             print("ERROR", error)

@@ -1,5 +1,4 @@
 from django.db import models
-from django.contrib.auth.models import User
 import string
 import random
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -13,7 +12,8 @@ def generate_id(
 
 
 class User(models.Model):
-    user_id = models.CharField(max_length=200, unique=True)
+    user_id = models.CharField(max_length=6, null=True, blank=True, unique=True)
+    auth_id = models.CharField(max_length=200, unique=True)
     email = models.EmailField()
     email_verified = models.BooleanField(default=False)
     first_name = models.CharField(max_length=100)
@@ -22,7 +22,7 @@ class User(models.Model):
     picture = models.URLField()
 
     def __str__(self) -> str:
-        return self.user_id
+        return self.auth_id
 
 
 class Project(models.Model):
@@ -55,6 +55,40 @@ class Membership(models.Model):
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE, related_name="memberships"
     )
+    AUTHORIZATION_CHOICES = [
+        # + delete the project, nominate director
+        ("ADM", "Administrator"),
+        # + delete any bug, assign, add, remove members, nominate contributor or viewer
+        ("DIR", "Director"),
+        # + create a new bug, edit, delete unassigned bugs created by the user
+        ("CON", "Contributor"),
+        # inspect the project
+        ("SPE", "Spectator"),
+    ]
+    authorization = models.CharField(max_length=50, choices=AUTHORIZATION_CHOICES)
+    """
+    ADMINISTRATOR
+        - nominate director
+        - delete a bug
+        - delete the project
+        - plus all below
+
+    DIRECTOR
+        - add member
+        - nominate contributor, spectator
+        - remove contributor, spectator
+        - assign bug to contributor
+        - plus all below
+    
+    CONTRIBUTOR
+        - report bugs
+        - edit bugs assigned to or reported by him
+        - plus all below
+    
+    SPECTATOR
+        - view the project
+
+    """
 
     def __str__(self) -> str:
         return self.project.title

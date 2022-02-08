@@ -1,8 +1,8 @@
-cryptography>=36.0.1
-Django>=4.0.1
-django-cors-headers>=3.11.0
-djangorestframework>=3.13.1
-drf-jwt>=1.19.2
-PyJWT>=2.3.0
-requests>=2.27.1
+cryptography
+Django
+django-cors-headers
 django-environ
+djangorestframework
+drf-jwt
+PyJWT
+requests
