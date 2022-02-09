@@ -10,6 +10,15 @@ from django.http import (
 from .models import Bug, Membership, Project, User
 from django.shortcuts import redirect
 from django.db.models import Q, Max
+import string
+import random
+
+
+def generate_id(
+    length=10,
+    characters=string.ascii_uppercase + string.digits,
+):
+    return "".join(random.choice(characters) for _ in range(length))
 
 
 def printError(*args, **kwargs):
@@ -36,6 +45,17 @@ def getAttachment(attachment):
     }
 
 
+def getAssignment(assignment):
+    return {
+        "member": getUser(assignment.membership.user),
+        "index": assignment.bug.index,
+    }
+
+
+def getTag(tag):
+    return {"id": tag.id, "title": tag.title, "style": tag.style}
+
+
 def getBug(bug):
     return {
         "id": bug.id,
@@ -48,8 +68,12 @@ def getBug(bug):
         "reproducible": bug.reproducible,
         "impact": bug.impact,
         "urgency": bug.urgency,
+        "tags": [getTag(mark.tag) for mark in bug.marks.all()],
         "attachments": [
             getAttachment(attachment) for attachment in bug.attachments.all()
+        ],
+        "assignees": [
+            getAssignment(assignment) for assignment in bug.assignments.all()
         ],
     }
 
@@ -63,6 +87,7 @@ def getProject(project):
         "updatedAt": project.date_modified,
         "creator": getUser(project.creator),
         "bugs": [getBug(bug) for bug in project.bugs.all()],
+        "tags": [getTag(tag) for tag in project.tags.all()],
         "members": [
             {
                 "authorization": membership.get_authorization_display(),
@@ -82,7 +107,14 @@ def me(request):
 def project_create(request):
     if request.method == "POST":
         try:
-            project = Project(creator=request.user, **request.data)
+            project_id = None
+            while (
+                not project_id or Project.objects.filter(project_id=project_id).exists()
+            ):
+                project_id = generate_id(length=10)
+            project = Project(
+                creator=request.user, project_id=project_id, **request.data
+            )
             project.save()
         except Exception as error:
             printError(error)
@@ -140,7 +172,7 @@ def project_get(request):
                 user=request.user, project__project_id=project_id
             ).first()
             if not membership:
-                raise Exception("membership is None")
+                raise Exception("membership not found")
         except Exception as error:
             printError(error)
             return HttpResponseForbidden("membership not found")

@@ -1,14 +1,5 @@
 from django.db import models
-import string
-import random
 from django.core.validators import MaxValueValidator, MinValueValidator
-
-
-def generate_id(
-    length=10,
-    characters=string.ascii_uppercase + string.digits,
-):
-    return "".join(random.choice(characters) for _ in range(length))
 
 
 class User(models.Model):
@@ -36,13 +27,13 @@ class Project(models.Model):
     bug_index = models.IntegerField(default=0)
     project_id = models.CharField(max_length=10, null=True, blank=True, unique=True)
 
-    def save(self):
-        while (
-            not self.project_id
-            or Project.objects.filter(project_id=self.project_id).exists()
-        ):
-            self.project_id = generate_id(length=10)
-        return super(Project, self).save()
+    # def save(self):
+    #     while (
+    #         not self.project_id
+    #         or Project.objects.filter(project_id=self.project_id).exists()
+    #     ):
+    #         self.project_id = generate_id(length=10)
+    #     return super(Project, self).save()
 
     def __str__(self) -> str:
         return self.title
@@ -68,7 +59,7 @@ class Membership(models.Model):
     authorization = models.CharField(max_length=50, choices=AUTHORIZATION_CHOICES)
     """
     ADMINISTRATOR
-        - nominate director
+        - nominate administrator, director
         - delete a bug
         - delete the project
         - plus all below
