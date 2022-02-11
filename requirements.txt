@@ -4,5 +4,6 @@ django-cors-headers
 django-environ
 djangorestframework
 drf-jwt
+psycopg2
 PyJWT
 requests

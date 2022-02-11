@@ -13,4 +13,6 @@ urlpatterns = [
     path("member-remove", views.member_remove),
     path("member-authorize", views.member_authorize),
     path("me", views.me),
+    path("tag-create", views.tag_create),
+    path("tag-remove", views.tag_remove),
 ]

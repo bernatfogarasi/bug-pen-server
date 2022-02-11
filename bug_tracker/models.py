@@ -132,9 +132,11 @@ class Tag(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
     title = models.CharField(max_length=100)
-    style = models.TextField(max_length=1000)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="tags")
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="tags")
+    text_color = models.CharField(max_length=7)
+    background_color = models.CharField(max_length=7)
+    border_color = models.CharField(max_length=7)
 
     def __str__(self) -> str:
         return self.title

@@ -1,19 +1,17 @@
 from pathlib import Path
 import environ
 
-env = environ.Env()
-environ.Env.read_env()
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-# See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+env = environ.Env()
+environ.Env.read_env(BASE_DIR / ".env")
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env("DEBUG") in ["True", "true", True]
+
+ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -44,9 +42,7 @@ APPEND_SLASH = False
 
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-]
+CORS_ALLOWED_ORIGINS = ["http://localhost:3000", "https://bugpen.vercel.app"]
 
 # CSRF_TRUSTED_ORIGINS = [
 #     "http://localhost:3000",
@@ -76,12 +72,24 @@ WSGI_APPLICATION = "bug_pen_server.wsgi.application"
 
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
+
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+        "ENGINE": "django.db.backends.postgresql_psycopg2",
+        "NAME": env("DATABASE_NAME"),
+        "USER": env("DATABASE_USER"),
+        "PASSWORD": env("DATABASE_PASSWORD"),
+        "HOST": env("DATABASE_HOST"),
+        "PORT": env("DATABASE_PORT"),
+    },
 }
+
 
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
 

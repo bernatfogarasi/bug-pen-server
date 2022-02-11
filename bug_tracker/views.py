@@ -7,7 +7,7 @@ from django.http import (
     HttpResponseForbidden,
     HttpResponseServerError,
 )
-from .models import Bug, Membership, Project, User
+from .models import Bug, Membership, Project, User, Tag
 from django.shortcuts import redirect
 from django.db.models import Q, Max
 import string
@@ -53,7 +53,15 @@ def getAssignment(assignment):
 
 
 def getTag(tag):
-    return {"id": tag.id, "title": tag.title, "style": tag.style}
+    return {
+        "id": tag.id,
+        "createdAt": tag.date_created,
+        "creator": getUser(tag.creator),
+        "title": tag.title,
+        "textColor": tag.text_color,
+        "backgroundColor": tag.background_color,
+        "borderColor": tag.border_color,
+    }
 
 
 def getBug(bug):
@@ -168,11 +176,9 @@ def project_get(request):
             return HttpResponseForbidden("projectId not specified")
 
         try:
-            membership = Membership.objects.filter(
+            membership = Membership.objects.get(
                 user=request.user, project__project_id=project_id
-            ).first()
-            if not membership:
-                raise Exception("membership not found")
+            )
         except Exception as error:
             printError(error)
             return HttpResponseForbidden("membership not found")
@@ -208,11 +214,9 @@ def bug_report(request):
             return HttpResponseForbidden("projectId not specified")
 
         try:
-            membership = Membership.objects.filter(
+            membership = Membership.objects.get(
                 user=request.user, project__project_id=project_id
-            ).first()
-            if not membership:
-                raise Exception("membership is None")
+            )
         except Exception as error:
             printError(error)
             return HttpResponseNotFound("membership not found")
@@ -272,9 +276,7 @@ def profile_get(request):
             return HttpResponseForbidden("userId not specified")
 
         try:
-            user = User.objects.filter(user_id=user_id).first()
-            if not user:
-                raise Exception("user is None")
+            user = User.objects.get(user_id=user_id)
         except Exception as error:
             printError(error)
             return HttpResponseNotFound("user not found")
@@ -315,14 +317,14 @@ def member_add(request):
             return HttpResponseNotFound("user not found")
 
         try:
-            membership_requester = Membership.objects.filter(
+            membership_requester = Membership.objects.get(
                 user=request.user, project=project
-            ).first()
-            if not membership_requester:
-                raise Exception("requester membership not found")
+            )
             if membership_requester.authorization not in ["ADM", "DIR"]:
                 raise Exception("authorization not sufficient")
-            membership_subject = Membership.objects.filter(user=user, project=project)
+            membership_subject = Membership.objects.filter(
+                user=user, project=project
+            ).exists()
             if membership_subject:
                 raise Exception("subject membership already exists")
         except Exception as error:
@@ -343,48 +345,23 @@ def member_remove(request):
     if request.method == "POST":
         try:
             project_id = request.GET["projectId"]
-        except Exception as error:
-            printError(error)
-            return HttpResponseForbidden("projectId not specified")
-
-        try:
             user_id = request.GET["userId"]
         except Exception as error:
             printError(error)
-            return HttpResponseForbidden("userId not specified")
-
-        # try:
-        #     if request.user_id == user_id:
-        #         raise Exception("cannot remove self")
-        # except Exception as error:
-        #     return HttpResponseForbidden("cannot remove self")
+            return HttpResponseForbidden("parameter not specified")
 
         try:
-            project = Project.objects.filter(project_id=project_id).first()
-        except Exception as error:
-            printError(error)
-            return HttpResponseNotFound("project not found")
-
-        try:
-            user = User.objects.filter(user_id=user_id).first()
-        except Exception as error:
-            printError(error)
-            return HttpResponseNotFound("user not found")
-
-        try:
-            membership_subject = Membership.objects.filter(user=user, project=project)
-            if not membership_subject:
-                raise Exception("subject membership not found")
+            membership_subject = Membership.objects.get(
+                user__user_id=user_id, project__project_id=project_id
+            )
         except Exception as error:
             printError(error)
             return HttpResponseNotFound("subject membership not found")
 
         try:
-            membership_requester = Membership.objects.filter(
-                user=request.user, project=project
-            ).first()
-            if not membership_requester:
-                raise Exception("requester membership not found")
+            membership_requester = membership_subject.project.memberships.get(
+                user=request.user
+            )
             if membership_requester.authorization not in ["ADM", "DIR"] or (
                 membership_requester.authorization == "DIR"
                 and membership_subject.authorization in ["ADM", "DIR"]
@@ -413,28 +390,18 @@ def member_authorize(request):
             printError(error)
             return HttpResponseBadRequest("parameter not found")
 
-        # try:
-        #     user = User.objects.filter(user_id=user_id).first()
-        #     if not user:
-        #         raise Exception("subject not found")
-        # except Exception as error:
-        #     printError(error)
-        #     return HttpResponseNotFound("subject not found")
-
         try:
-            membership_requester = Membership.objects.filter(user=request.user).first()
-            if not membership_requester:
-                raise Exception("requester not member")
+            membership_requester = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
         except Exception as error:
             printError(error)
             return HttpResponseNotFound("requester not member")
 
         try:
-            membership_subject = Membership.objects.filter(
-                user__user_id=user_id, project__project_id=project_id
-            ).first()
-            if not membership_subject:
-                raise Exception("subject not member")
+            membership_subject = membership_requester.project.memberships.get(
+                user__user_id=user_id
+            )
         except Exception as error:
             printError(error)
             return HttpResponseNotFound("subject not member")
@@ -482,5 +449,82 @@ def member_authorize(request):
         except Exception as error:
             printError(error)
             return HttpResponseServerError("could not save")
+
+        return redirect(f"/project-get?projectId={project_id}")
+
+
+def tag_create(request):
+    if request.method == "POST":
+        try:
+            project_id = request.GET["projectId"]
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("parameter not found")
+
+        try:
+            parameters = {
+                "title": request.data["title"],
+                "text_color": request.data["textColor"],
+                "border_color": request.data["borderColor"],
+                "background_color": request.data["backgroundColor"],
+            }
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("bad body")
+
+        try:
+            membership = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("not member")
+
+        try:
+            tag = Tag.objects.filter(project=membership.project, **parameters).exists()
+            if tag:
+                raise Exception("tag already exists")
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("tag already exists")
+
+        try:
+            tag = Tag(project=membership.project, creator=membership.user, **parameters)
+            tag.save()
+        except Exception as error:
+            printError(error)
+            return HttpResponseServerError("could not save")
+
+        return redirect(f"/project-get?projectId={project_id}")
+
+
+def tag_remove(request):
+    if request.method == "POST":
+        try:
+            project_id = request.GET["projectId"]
+            tag_id = request.GET["tagId"]
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("parameter not found")
+
+        try:
+            membership = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("not member")
+
+        try:
+            tag = membership.project.tags.get(id=tag_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("tag not found")
+
+        try:
+            tag.delete()
+        except Exception as error:
+            printError(error)
+            return HttpResponseServerError("could not delete")
 
         return redirect(f"/project-get?projectId={project_id}")
