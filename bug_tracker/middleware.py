@@ -1,4 +1,5 @@
 from pprint import pprint
+from django.conf import settings
 from django.http import HttpResponseServerError, JsonResponse, HttpResponseForbidden
 
 from bug_tracker.views import printError
@@ -35,7 +36,7 @@ class Authenticate:
 
         DOMAIN = "dev-su34m38a.us.auth0.com"
         ISSUER = f"https://{DOMAIN}/"
-        AUDIENCE = "http://localhost:8000"
+        AUDIENCE = settings.ORIGIN
         ALGORITHM = "RS256"
         JWKS_URL = f"{ISSUER}.well-known/jwks.json"
 
