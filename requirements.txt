@@ -11,6 +11,8 @@ django-cors-headers==3.11.0
 django-environ==0.8.1
 djangorestframework==3.13.1
 drf-jwt==1.19.2
+gevent==21.12.0
+greenlet==1.1.2
 gunicorn==20.1.0
 idna==3.3
 mypy-extensions==0.4.3
@@ -27,3 +29,5 @@ tomli==1.2.3
 typing_extensions==4.0.1
 tzdata==2021.5
 urllib3==1.26.8
+zope.event==4.5.0
+zope.interface==5.4.0
