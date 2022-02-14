@@ -7,7 +7,7 @@ from django.http import (
     HttpResponseForbidden,
     HttpResponseServerError,
 )
-from .models import Bug, Membership, Project, User, Tag
+from .models import Bug, Membership, Project, User, Tag, Mark
 from django.shortcuts import redirect
 from django.db.models import Q, Max
 import string
@@ -91,6 +91,7 @@ def getProject(project):
         "id": project.id,
         "projectId": project.project_id,
         "title": project.title,
+        "description": project.description,
         "createdAt": project.date_created,
         "updatedAt": project.date_modified,
         "creator": getUser(project.creator),
@@ -526,5 +527,180 @@ def tag_remove(request):
         except Exception as error:
             printError(error)
             return HttpResponseServerError("could not delete")
+
+        return redirect(f"/project-get?projectId={project_id}")
+
+
+def project_edit(request):
+    if request.method == "POST":
+        try:
+            project_id = request.GET["projectId"]
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("parameter not found")
+
+        try:
+            changes = {}
+            for key in ["title", "description"]:
+                if key in request.data:
+                    changes[key] = request.data[key]
+            if not changes:
+                raise Exception("changes not found")
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("changes not found")
+
+        try:
+            membership = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("not member")
+
+        try:
+            membership.project.update(**changes)
+            membership.project.save()
+        except Exception as error:
+            printError(error)
+            return HttpResponseServerError("could update")
+
+        return redirect(f"/project-get?projectId={project_id}")
+
+
+def bug_edit(request):
+    if request.method == "POST":
+        try:
+            project_id = request.GET["projectId"]
+            bug_id = request.GET["bugId"]
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("parameter not found")
+
+        try:
+            changes = {}
+            for key in ["title", "description", "reproducible", "impact", "urgency"]:
+                if key in request.data:
+                    changes[key] = request.data[key]
+            print(changes)
+            if not changes:
+                raise Exception("changes not found")
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("changes not found")
+
+        try:
+            membership = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("not member")
+
+        try:
+            bug = membership.project.bugs.get(id=bug_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("bug not found")
+
+        try:
+            bug.update(**changes)
+            bug.save()
+        except Exception as error:
+            printError(error)
+            return HttpResponseServerError("could update")
+
+        return redirect(f"/project-get?projectId={project_id}")
+
+
+def tag_add(request):
+    if request.method == "POST":
+        try:
+            project_id = request.GET["projectId"]
+            bug_id = request.GET["bugId"]
+            tag_id = request.GET["tagId"]
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("parameter not found")
+
+        try:
+            membership = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("not member")
+
+        try:
+            bug = membership.project.bugs.get(id=bug_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("bug not found")
+
+        try:
+            tag = membership.project.tags.get(id=tag_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("tag not found")
+
+        try:
+            mark = bug.marks.filter(tag=tag).first()
+            if mark:
+                return HttpResponseNotAllowed("tag already added")
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("tag already added")
+
+        try:
+            mark = Mark(creator=request.user, bug=bug, tag=tag)
+            mark.save()
+        except Exception as error:
+            printError(error)
+            return HttpResponseServerError("could not save mark")
+
+        return redirect(f"/project-get?projectId={project_id}")
+
+
+def mark_remove(request):
+    if request.method == "POST":
+        try:
+            project_id = request.GET["projectId"]
+            bug_id = request.GET["bugId"]
+            tag_id = request.GET["tagId"]
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("parameter not found")
+
+        try:
+            membership = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("not member")
+
+        try:
+            bug = membership.project.bugs.get(id=bug_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("bug not found")
+
+        try:
+            tag = membership.project.tags.get(id=tag_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("tag not found")
+
+        try:
+            mark = bug.marks.get(tag=tag)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("mark not found")
+
+        try:
+            mark.delete()
+        except Exception as error:
+            printError(error)
+            return HttpResponseServerError("could not delete mark")
 
         return redirect(f"/project-get?projectId={project_id}")

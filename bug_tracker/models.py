@@ -27,6 +27,10 @@ class Project(models.Model):
     bug_index = models.IntegerField(default=0)
     project_id = models.CharField(max_length=10, null=True, blank=True, unique=True)
 
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
     # def save(self):
     #     while (
     #         not self.project_id
@@ -100,6 +104,10 @@ class Bug(models.Model):
     urgency = models.IntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)], default=3
     )
+
+    def update(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     """
     class Scale(models.TextChoices):

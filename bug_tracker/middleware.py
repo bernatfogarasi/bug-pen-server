@@ -78,6 +78,8 @@ class Authenticate:
             print("ERROR", error)
             return HttpResponseServerError("cannot get user info")
 
+        request.authenticated = True
+
         return self.get_response(request)
 
 
