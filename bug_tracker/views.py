@@ -7,7 +7,7 @@ from django.http import (
     HttpResponseForbidden,
     HttpResponseServerError,
 )
-from .models import Bug, Membership, Project, User, Tag, Mark
+from .models import Bug, Membership, Project, User, Tag, Mark, Assignment
 from django.shortcuts import redirect
 from django.db.models import Q, Max
 import string
@@ -45,13 +45,6 @@ def getAttachment(attachment):
     }
 
 
-def getAssignment(assignment):
-    return {
-        "member": getUser(assignment.membership.user),
-        "index": assignment.bug.index,
-    }
-
-
 def getTag(tag):
     return {
         "id": tag.id,
@@ -81,7 +74,7 @@ def getBug(bug):
             getAttachment(attachment) for attachment in bug.attachments.all()
         ],
         "assignees": [
-            getAssignment(assignment) for assignment in bug.assignments.all()
+            getUser(assignment.membership.user) for assignment in bug.assignments.all()
         ],
     }
 
@@ -702,5 +695,102 @@ def mark_remove(request):
         except Exception as error:
             printError(error)
             return HttpResponseServerError("could not delete mark")
+
+        return redirect(f"/project-get?projectId={project_id}")
+
+
+def assign(request):
+    if request.method == "POST":
+        try:
+            project_id = request.GET["projectId"]
+            bug_id = request.GET["bugId"]
+            user_id = request.GET["userId"]
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("parameter not found")
+
+        try:
+            membership_requester = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("requester not member")
+
+        try:
+            membership_subject = membership_requester.project.memberships.get(
+                user__user_id=user_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("subject not member")
+
+        try:
+            bug = membership_requester.project.bugs.get(id=bug_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("bug not found")
+
+        try:
+            assignment = bug.assignments.filter(membership=membership_subject).first()
+            if assignment:
+                return HttpResponseNotAllowed("already assigned")
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("already assigned")
+
+        try:
+            assignment = Assignment(membership=membership_subject, bug=bug)
+            assignment.save()
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("could not save assignment")
+
+        return redirect(f"/project-get?projectId={project_id}")
+
+
+def assign_remove(request):
+    if request.method == "POST":
+        try:
+            project_id = request.GET["projectId"]
+            bug_id = request.GET["bugId"]
+            user_id = request.GET["userId"]
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("parameter not found")
+
+        try:
+            membership_requester = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("requester not member")
+
+        try:
+            membership_subject = membership_requester.project.memberships.get(
+                user__user_id=user_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("subject not member")
+
+        try:
+            bug = membership_requester.project.bugs.get(id=bug_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("bug not found")
+
+        try:
+            assignment = bug.assignments.get(membership=membership_subject)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("could not find assignment")
+
+        try:
+            assignment.delete()
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("could not remove assignment")
 
         return redirect(f"/project-get?projectId={project_id}")

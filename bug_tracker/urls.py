@@ -19,4 +19,6 @@ urlpatterns = [
     path("tag-remove", views.tag_remove),
     path("tag-add", views.tag_add),
     path("mark-remove", views.mark_remove),
+    path("assign", views.assign),
+    path("assign-remove", views.assign_remove),
 ]
