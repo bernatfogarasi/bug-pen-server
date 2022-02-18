@@ -167,6 +167,9 @@ class Attachment(models.Model):
     creator = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="attachments"
     )
+    file = models.FileField(upload_to="media/attachments/")
+    content_type = models.CharField(max_length=200)
+    size = models.IntegerField()
 
     def __str__(self) -> str:
         return self.title

@@ -1,4 +1,5 @@
 from django.http import (
+    FileResponse,
     HttpResponseBadRequest,
     HttpResponseNotAllowed,
     HttpResponseNotFound,
@@ -7,7 +8,7 @@ from django.http import (
     HttpResponseForbidden,
     HttpResponseServerError,
 )
-from .models import Bug, Membership, Project, User, Tag, Mark, Assignment
+from .models import Attachment, Bug, Membership, Project, User, Tag, Mark, Assignment
 from django.shortcuts import redirect
 from django.db.models import Q, Max
 import string
@@ -41,6 +42,9 @@ def getAttachment(attachment):
     return {
         "id": attachment.id,
         "title": attachment.title,
+        "size": attachment.size,
+        "contentType": attachment.content_type,
+        "creator": getUser(attachment.creator),
         "createdAt": attachment.date_created,
     }
 
@@ -792,5 +796,132 @@ def assign_remove(request):
         except Exception as error:
             printError(error)
             return HttpResponseNotFound("could not remove assignment")
+
+        return redirect(f"/project-get?projectId={project_id}")
+
+
+def attach(request):
+    if request.method == "POST":
+        try:
+            project_id = request.GET["projectId"]
+            bug_id = request.GET["bugId"]
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("parameter not found")
+
+        try:
+            membership = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("not member")
+
+        try:
+            bug = membership.project.bugs.get(id=bug_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("bug not found")
+
+        try:
+            for file in request.FILES.values():
+                attachment = Attachment(
+                    bug=bug,
+                    creator=request.user,
+                    title=file.name,
+                    file=file,
+                    content_type=file.content_type,
+                    size=file.size,
+                )
+                attachment.save()
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("could not process files")
+
+        return redirect(f"/project-get?projectId={project_id}")
+
+
+def attachment_get(request):
+    if request.method == "GET":
+        try:
+            project_id = request.GET["projectId"]
+            bug_id = request.GET["bugId"]
+            attachment_id = request.GET["attachmentId"]
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("parameter not found")
+
+        try:
+            membership = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("not member")
+
+        try:
+            bug = membership.project.bugs.get(id=bug_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("bug not found")
+
+        try:
+            attachment = bug.attachments.get(id=attachment_id)
+            file = attachment.file
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("attachment not found")
+
+        try:
+            response = HttpResponse(
+                attachment.file, content_type=attachment.content_type
+            )
+            response[
+                "Content-Disposition"
+            ] = f'attachment; filename="{attachment.title}";'
+
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("attachment not found")
+
+        return response
+
+
+def attachment_remove(request):
+    if request.method == "POST":
+        try:
+            project_id = request.GET["projectId"]
+            bug_id = request.GET["bugId"]
+            attachment_id = request.GET["attachmentId"]
+        except Exception as error:
+            printError(error)
+            return HttpResponseBadRequest("parameter not found")
+
+        try:
+            membership = Membership.objects.get(
+                user=request.user, project__project_id=project_id
+            )
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotAllowed("not member")
+
+        try:
+            bug = membership.project.bugs.get(id=bug_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("bug not found")
+
+        try:
+            attachment = bug.attachments.get(id=attachment_id)
+        except Exception as error:
+            printError(error)
+            return HttpResponseNotFound("attachment not found")
+
+        try:
+            attachment.file.delete()
+            attachment.delete()
+        except Exception as error:
+            printError(error)
+            return HttpResponseServerError("could not delete attachment")
 
         return redirect(f"/project-get?projectId={project_id}")

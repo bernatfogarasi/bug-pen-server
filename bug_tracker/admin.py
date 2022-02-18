@@ -11,6 +11,7 @@ admin.site.register(
         models.Project,
         models.Tag,
         models.User,
+        models.Attachment,
     ]
 )
 

@@ -125,7 +125,7 @@ class ParseBody:
         if public(request):
             return self.get_response(request)
 
-        if request.method == "POST":
+        if request.method == "POST" and request.content_type == "application/json":
             try:
                 request.data = json.loads(request.body.decode("utf-8"))
             except Exception as error:

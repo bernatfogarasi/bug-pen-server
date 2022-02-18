@@ -21,4 +21,7 @@ urlpatterns = [
     path("mark-remove", views.mark_remove),
     path("assign", views.assign),
     path("assign-remove", views.assign_remove),
+    path("attach", views.attach),
+    path("attachment-get", views.attachment_get),
+    path("attachment-remove", views.attachment_remove),
 ]
