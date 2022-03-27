@@ -31,8 +31,10 @@ class Authenticate:
         self.get_response = get_response
 
     def __call__(self, request):
-        if public(request):
+        if public(request) or request.session.get("user_id"):
             return self.get_response(request)
+
+        print("REQUESTING_AUTH0")
 
         DOMAIN = "dev-su34m38a.us.auth0.com"
         ISSUER = f"https://{DOMAIN}/"
@@ -91,6 +93,15 @@ class UserFindCreate:
         if public(request):
             return self.get_response(request)
 
+        user_id = request.session.get("user_id")
+        if user_id:
+            try:
+                request.user = User.objects.get(user_id=user_id)
+            except Exception as error:
+                print("ERROR", error)
+                return HttpResponseForbidden("cannot find user from cookie")
+            return self.get_response(request)
+
         try:
             user, created = User.objects.update_or_create(
                 auth_id=request.auth_id,
@@ -109,7 +120,10 @@ class UserFindCreate:
                         length=6, characters=string.ascii_lowercase + string.digits
                     )
                 user.save()
+
             request.user = user
+            request.session["user_id"] = request.user.user_id
+
         except Exception as error:
             print("ERROR", error)
             return HttpResponseForbidden("cannot find or create user")

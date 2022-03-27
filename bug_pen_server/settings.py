@@ -39,6 +39,8 @@ MIDDLEWARE = [
     "bug_tracker.middleware.ParseBody",  #
 ]
 
+SESSION_COOKIE_SECURE = False
+
 APPEND_SLASH = False
 
 CORS_ALLOW_CREDENTIALS = True
