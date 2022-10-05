@@ -1,14 +1,16 @@
-from pprint import pprint
-from django.conf import settings
-from django.http import HttpResponseServerError, JsonResponse, HttpResponseForbidden
-
-from bug_tracker.views import printError
-from .models import User
 import json
+import random
+import string
+from pprint import pprint
+
 import jwt
 import requests
-import string
-import random
+from django.conf import settings
+from django.http import HttpResponseForbidden, HttpResponseServerError, JsonResponse
+
+from bug_tracker.views import printError
+
+from .models import User
 
 
 def public(request):
@@ -105,14 +107,16 @@ class UserFindCreate:
         try:
             user, created = User.objects.update_or_create(
                 auth_id=request.auth_id,
-                email=request.user_info["email"]
-                if "email" in request.user_info
-                else print("WARNING", "could not get email", request.user_info),
-                email_verified=request.user_info["email_verified"],
-                last_name=request.user_info["family_name"],
-                first_name=request.user_info["given_name"],
-                locale=request.user_info["locale"],
-                picture=request.user_info["picture"],
+                defaults={
+                    "picture": request.user_info["picture"],
+                    "email": request.user_info["email"],
+                    # if "email" in request.user_info
+                    # else print("WARNING", "could not get email", request.user_info),
+                    "email_verified": request.user_info["email_verified"],
+                    "last_name": request.user_info["family_name"],
+                    "first_name": request.user_info["given_name"],
+                    "locale": request.user_info["locale"],
+                },
             )
             if created:
                 while User.objects.filter(user_id=user.user_id).exists():
@@ -125,7 +129,7 @@ class UserFindCreate:
             request.session["user_id"] = request.user.user_id
 
         except Exception as error:
-            print("ERROR", error)
+            print("ERROR:CANNOT-FIND-OR-CREATE-USER", error)
             return HttpResponseForbidden("cannot find or create user")
 
         return self.get_response(request)

@@ -1,18 +1,20 @@
+import random
+import string
+
+from django.db.models import Max, Q
 from django.http import (
     FileResponse,
+    HttpResponse,
     HttpResponseBadRequest,
+    HttpResponseForbidden,
     HttpResponseNotAllowed,
     HttpResponseNotFound,
-    JsonResponse,
-    HttpResponse,
-    HttpResponseForbidden,
     HttpResponseServerError,
+    JsonResponse,
 )
-from .models import Attachment, Bug, Membership, Project, User, Tag, Mark, Assignment
 from django.shortcuts import redirect
-from django.db.models import Q, Max
-import string
-import random
+
+from .models import Assignment, Attachment, Bug, Mark, Membership, Project, Tag, User
 
 
 def generate_id(
@@ -196,7 +198,7 @@ def project_get(request):
 def memberships_count(request):
     if request.method == "GET":
         try:
-            count = len(Membership.objects.all())
+            count = len(User.objects.all())
         except Exception as error:
             HttpResponseServerError("could not count members")
 
