@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -45,7 +46,7 @@ APPEND_SLASH = False
 
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = ["http://localhost:3000", "https://bugpen.vercel.app"]
+CORS_ALLOWED_ORIGINS = ["http://localhost:3000", "https://bugpen.com"]
 
 # CSRF_TRUSTED_ORIGINS = [
 #     "http://localhost:3000",
